@@ -1,0 +1,49 @@
+service: backend-challenge
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-1
+
+functions:
+  fusionados:
+    handler: src/handler.fusionados
+    events:
+      - http:
+          path: fusionados
+          method: get
+          cors: true
+  almacenar:
+    handler: src/handler.almacenar
+    events:
+      - http:
+          path: almacenar
+          method: post
+          cors: true
+  historial:
+    handler: src/handler.historial
+    events:
+      - http:
+          path: historial
+          method: get
+          cors: true
+
+resources:
+  Resources:
+    DynamoDBFusionados:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Fusionados
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+
+plugins:
+  - serverless-offline
+  - serverless-plugin-typescript

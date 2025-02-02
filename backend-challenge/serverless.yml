@@ -45,5 +45,6 @@ resources:
           WriteCapacityUnits: 5
 
 plugins:
+  - serverless-auto-swagger
   - serverless-offline
   - serverless-plugin-typescript

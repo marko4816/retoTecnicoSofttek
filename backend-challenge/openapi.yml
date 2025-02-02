@@ -1,0 +1,98 @@
+openapi: 3.0.3
+info:
+  title: Swagger Reto Tecnico - OpenAPI 3.0
+  version: 1.0.11
+servers:
+  - url: https://localhost.swagger.io/api/v3
+tags:
+  - name: dev
+    description: Desarrollo de las apis del reto tecnico para Rimac con Softtek
+paths:
+  /fusionados:
+    get:
+      tags:
+        - dev
+      summary: Busca si hay data en la bd si no consulta las apis externas
+      description: Obtiene la data cacheada de la bd si no encuentra consulta las apis externas y luego lo registra en bd
+      operationId: getData
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Fusionados'          
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: Data not found
+        '422':
+          description: Validation exception
+  /almacenados:
+    post:
+      tags:
+        - dev
+      summary: Agregar data a la bd
+      description: Agregar data a la bd
+      operationId: addData
+      requestBody:
+        description: Crear nueva Data
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Fusionados'
+        required: true
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Almacenados'          
+        '400':
+          description: Invalid input
+        '422':
+          description: Validation exception
+  /historial:
+    get:
+      tags:
+        - dev
+      summary: Obtener el historial
+      description: Obtener el historial 
+      operationId: getHistorical
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Historial'
+        '400':
+          description: Invalid status value
+  
+components:
+  schemas:
+    Fusionados:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Luke Skywalker"
+        planet:
+          type: string
+          example: "Tatoin"
+        weather:
+          type: string
+          example: "Caluroso"
+    Almacenados:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Data stored successfully"
+    Historial:
+      type: array
+      items:
+        $ref: '#/components/schemas/Fusionados'

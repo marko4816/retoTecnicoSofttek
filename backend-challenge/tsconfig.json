@@ -10,7 +10,12 @@
     "outDir": "lib",
     "rootDir": "./src",
     "baseUrl": "./src",
-    "module": "commonjs"
+    "module": "commonjs",
+    "resolveJsonModule": true,
+  "paths": {
+    "*": ["node_modules/*"]
+  },
+  "types": ["node", "jest"]
   },
   "include": ["src/**/*.ts"],
   "exclude": [

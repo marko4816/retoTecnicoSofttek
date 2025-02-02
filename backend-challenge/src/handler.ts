@@ -1,32 +1,41 @@
 import { APIGatewayEvent, APIGatewayProxyResult } from 'aws-lambda';
 import axios from 'axios';
-import * as AWS from 'aws-sdk';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, PutCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
+const client = new DynamoDBClient({
+  region: process.env.AWS_REGION || "us-east-1",
+});
 
-const dynamoDb = new AWS.DynamoDB.DocumentClient();
-const cacheTtl = 30 * 60 * 1000; 
-
+const dynamoDb = DynamoDBDocumentClient.from(client);
+const cacheTtl = 30 * 60 * 1000;
 
 const getExternalData = async () => {
-  const starWarsApi = 'https://swapi.dev/api/people/';
-  const weatherApi = 'https://api.openweathermap.org/data/2.5/weather?lat=44.34&lon=10.99&appid=ea87d91d4b5c2817fdeb06bcdce76036';
+  try {
+    const starWarsApi = 'https://swapi.dev/api/people/';
+    const weatherApi = 'https://api.openweathermap.org/data/2.5/weather?lat=44.34&lon=10.99&appid=ea87d91d4b5c2817fdeb06bcdce76036';
 
-  const starWarsData = await axios.get(starWarsApi);
-  const weatherData = await axios.get(weatherApi)
+    const [starWarsResponse, weatherResponse] = await Promise.all([
+      axios.get(starWarsApi),
+      axios.get(weatherApi),
+    ]);
 
-  return { starWarsData: starWarsData.data, weatherData: weatherData.data };
+    return {
+      starWarsData: starWarsResponse.data,
+      weatherData: weatherResponse.data,
+    };
+  } catch (error) {
+    console.error('Error al obtener datos externos:', error);
+    throw new Error('Error al obtener datos externos');
+  }
 };
 
-
-export const fusionados = async (event: APIGatewayEvent): Promise<APIGatewayProxyResult> => {
+export const fusionados = async (): Promise<APIGatewayProxyResult> => {
   try {
     
-    const cachedData = await dynamoDb
-      .get({
-        TableName: 'Fusionados',
-        Key: { id: 'fusionadosData' },
-      })
-      .promise();
+    const cachedData = await dynamoDb.send(
+      new GetCommand({ TableName: 'Fusionados', Key: { id: 'fusionadosData' } })
+    );
 
     if (cachedData.Item && Date.now() - cachedData.Item.timestamp < cacheTtl) {
       return {
@@ -35,9 +44,8 @@ export const fusionados = async (event: APIGatewayEvent): Promise<APIGatewayProx
       };
     }
 
-
+    
     const { starWarsData, weatherData } = await getExternalData();
-
 
     const fusionadosData = starWarsData.results.map((person: any) => ({
       name: person.name,
@@ -45,9 +53,9 @@ export const fusionados = async (event: APIGatewayEvent): Promise<APIGatewayProx
       weather: weatherData.weather[0].description,
     }));
 
-
-    await dynamoDb
-      .put({
+    
+    await dynamoDb.send(
+      new PutCommand({
         TableName: 'Fusionados',
         Item: {
           id: 'fusionadosData',
@@ -55,29 +63,31 @@ export const fusionados = async (event: APIGatewayEvent): Promise<APIGatewayProx
           timestamp: Date.now(),
         },
       })
-      .promise();
+    );
 
     return {
       statusCode: 200,
       body: JSON.stringify(fusionadosData),
     };
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error en fusionados:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: 'Internal Server Error' }),
+      body: JSON.stringify({
+        message: 'Internal Server Error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }),
     };
   }
 };
 
-
 export const almacenar = async (event: APIGatewayEvent): Promise<APIGatewayProxyResult> => {
-  const requestBody = JSON.parse(event.body || '{}');
-
   try {
+    const requestBody = JSON.parse(event.body || '{}');
 
-    await dynamoDb
-      .put({
+    
+    await dynamoDb.send(
+      new PutCommand({
         TableName: 'Fusionados',
         Item: {
           id: `custom_${Date.now()}`,
@@ -85,40 +95,41 @@ export const almacenar = async (event: APIGatewayEvent): Promise<APIGatewayProxy
           timestamp: Date.now(),
         },
       })
-      .promise();
+    );
 
     return {
       statusCode: 201,
       body: JSON.stringify({ message: 'Data stored successfully' }),
     };
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error en almacenar:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: 'Internal Server Error' }),
+      body: JSON.stringify({
+        message: 'Internal Server Error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }),
     };
   }
 };
 
-
-export const historial = async (event: APIGatewayEvent): Promise<APIGatewayProxyResult> => {
+export const historial = async (): Promise<APIGatewayProxyResult> => {
   try {
-
-    const result = await dynamoDb
-      .scan({
-        TableName: 'Fusionados',
-      })
-      .promise();
+    
+    const result = await dynamoDb.send(new ScanCommand({ TableName: 'Fusionados' }));
 
     return {
       statusCode: 200,
-      body: JSON.stringify(result.Items),
+      body: JSON.stringify(result.Items || []),
     };
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error en historial:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: 'Internal Server Error' }),
+      body: JSON.stringify({
+        message: 'Internal Server Error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }),
     };
   }
 };
